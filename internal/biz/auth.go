@@ -128,3 +128,78 @@ func (uc *AuthUsecase) Login(ctx context.Context, username, password string) (*T
 		RefreshToken: string(refToken),
 	}, nil
 }
+
+func (uc *AuthUsecase) Refresh(ctx context.Context, refreshToken string) (*TokenPair, error) {
+	ctx, span := uc.t.Start(ctx, "Refresh")
+	defer span.End()
+
+	token, err := uc.tf.NewTokenPayload().Parse(refreshToken)
+	if err != nil {
+		uc.log.Error("refresh: failed to parse token", err)
+		return nil, err
+	}
+
+	user, err := uc.usersUC.GetUser(ctx, token.GetID())
+	if err != nil {
+		uc.log.Error("refresh: failed to get user", err)
+		return nil, err
+	}
+
+	if user == nil {
+		uc.log.Error("refresh: user not found")
+		return nil, errors.NotFound("user", "user not found")
+	}
+
+	accToken, err := uc.tf.NewTokenPayload().
+		SetID(user.ID).
+		SetEmail(user.Email).
+		SetUsername(user.Username).
+		Build(time.Minute * 5).
+		Sign()
+	if err != nil {
+		uc.log.Error(err)
+		return nil, err
+	}
+	refToken, err := uc.tf.NewTokenPayload().
+		SetID(user.ID).
+		SetEmail(user.Email).
+		SetUsername(user.Username).
+		Build(time.Hour * 24).
+		Sign()
+	if err != nil {
+		uc.log.Error(err)
+		return nil, err
+	}
+
+	return &TokenPair{
+		AccessToken:  string(accToken),
+		RefreshToken: string(refToken),
+	}, nil
+}
+
+type Validation struct {
+	ID       string
+	Username string
+	Email    string
+	Exp      int64
+	Valid    bool
+}
+
+func (uc *AuthUsecase) Validate(ctx context.Context, accessToken string) (*Validation, error) {
+	ctx, span := uc.t.Start(ctx, "Validate")
+	defer span.End()
+
+	token, err := uc.tf.NewTokenPayload().Parse(accessToken)
+	if err != nil {
+		uc.log.Error("validate: failed to parse token", err)
+		return nil, err
+	}
+
+	return &Validation{
+		ID:       token.GetID(),
+		Username: token.GetUsername(),
+		Email:    token.GetEmail(),
+		Exp:      token.GetExp(),
+		Valid:    token.GetExp() > time.Now().Unix(),
+	}, nil
+}

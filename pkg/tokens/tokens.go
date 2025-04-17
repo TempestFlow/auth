@@ -29,6 +29,7 @@ type tokenPayload struct {
 	Username    string                 `json:"username"`
 	Email       string                 `json:"email"`
 	ExtraClaims map[string]interface{} `json:"extra_claims"`
+	Exp         int64                  `json:"exp"`
 
 	builder *jwt.Builder
 	tf      *TokenFactory
@@ -107,11 +108,13 @@ func (p *tokenPayload) Parse(token string) (TokenPayload, error) {
 	}
 	p.ExtraClaims = extraClaims
 
+	exp, _ := payload.Expiration()
 	return &tokenPayload{
 		ID:          id,
 		Username:    username,
 		Email:       email,
 		ExtraClaims: extraClaims,
+		Exp:         exp.Unix(),
 		builder:     nil,
 		tf:          p.tf,
 	}, nil

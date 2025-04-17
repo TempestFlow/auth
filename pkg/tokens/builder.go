@@ -16,6 +16,7 @@ type TokenPayload interface {
 	GetUsername() string
 	GetEmail() string
 	GetExtraClaims() map[string]interface{}
+	GetExp() int64
 }
 
 func (tf *TokenFactory) NewTokenPayload() TokenPayload {
@@ -86,4 +87,11 @@ func (p *tokenPayload) GetExtraClaims() map[string]interface{} {
 		return make(map[string]interface{})
 	}
 	return p.ExtraClaims
+}
+
+func (p *tokenPayload) GetExp() int64 {
+	if p == nil {
+		return 0
+	}
+	return p.Exp
 }
