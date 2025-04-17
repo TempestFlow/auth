@@ -30,11 +30,14 @@ var (
 	// flagconf is the config flag.
 	flagconf string
 
+	migrate bool
+
 	id, _ = os.Hostname()
 )
 
 func init() {
 	flag.StringVar(&flagconf, "conf", "./configs", "config path, eg: -conf config.yaml")
+	flag.BoolVar(&migrate, "migrate", false, "migrate database")
 }
 
 func newApp(logger log.Logger, gs *grpc.Server, hs *http.Server) *kratos.App {
@@ -92,7 +95,10 @@ func main() {
 	}
 	defer cleanup()
 
-	dep.GormMigrate(ctx, bc.Data, logger, &data.Users{})
+	if migrate {
+		log.NewHelper(logger).Info("Migrating database")
+		dep.GormMigrate(ctx, bc.Data, logger, &data.Users{})
+	}
 
 	log.NewHelper(logger).Debug("Starting Server")
 	if err := app.Run(); err != nil {
