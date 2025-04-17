@@ -2,9 +2,11 @@ package dep
 
 import (
 	"context"
+	"fmt"
 
 	"users/internal/conf"
 
+	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"go.opentelemetry.io/otel"
@@ -22,7 +24,7 @@ type Gorm struct {
 }
 
 func openDB(ctx context.Context, c *conf.Data, tp trace.TracerProvider) (*gorm.DB, error) {
-	ctx, span := tp.Tracer("gorm").Start(ctx, "openDB")
+	_, span := tp.Tracer("gorm").Start(ctx, "openDB")
 	defer span.End()
 	span.SetAttributes(attribute.String("driver", c.Database.Driver))
 	span.SetAttributes(attribute.String("source", c.Database.Source))
@@ -84,39 +86,51 @@ func NewGorm(c *conf.Data, logger log.Logger, tp trace.TracerProvider) (*Gorm, f
 	}, cleanup, nil
 }
 
-func GormMigrate(ctx context.Context, c *conf.Data, logger log.Logger, models ...interface{}) {
+func GormMigrate(ctx context.Context, c *conf.Data, logger log.Logger, models ...interface{}) error {
+	if c == nil || c.Database == nil || logger == nil || len(models) == 0 {
+		return errors.InternalServer("invalid input parameters", "nil input parameters")
+	}
+
 	ctx, span := otel.Tracer("data").Start(ctx, "Migrate")
 	defer span.End()
 	l := log.NewHelper(logger)
-	retries := -1
-	for {
-		retries++
-		span.SetAttributes(attribute.Int("retry", retries))
-		if retries > 3 {
-			l.Errorf("failed to migrate the schema, after %d", retries)
-			return
-		}
-		l.Infof("migrating the schema, retry: %d", retries)
-		client, err := openDB(ctx, c, otel.GetTracerProvider())
-		if err != nil {
-			l.Errorf("failed opening database: %s", err)
-			continue
-		}
-		for _, model := range models {
-			migrator := client.Migrator()
-			err = migrator.AutoMigrate(model)
-			if err != nil {
-				l.Errorf("failed migrating the schema: %s", err)
-				continue
-			} else {
-				l.Infof("migrated the schema successfully")
-			}
+
+	var db *gorm.DB
+	var err error
+
+	// Try to connect to database
+	for i := 0; i < 3; i++ {
+		span.SetAttributes(attribute.Int("retry", i))
+		if db, err = openDB(ctx, c, otel.GetTracerProvider()); err == nil {
 			break
 		}
-		if err != nil {
-			l.Errorf("failed migrating the schema: %s", err)
+		l.Errorf("database connection attempt %d failed: %v", i+1, err)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to connect to database: %w", err)
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		return fmt.Errorf("failed to get underlying database: %w", err)
+	}
+	defer sqlDB.Close()
+
+	// Migrate models
+	var m []interface{}
+	for _, model := range models {
+		if model == nil {
 			continue
 		}
-		break
+		m = append(m, model)
 	}
+	if err := db.Migrator().AutoMigrate(m...); err != nil {
+		reason := fmt.Sprintf("failed to migrate %T", m)
+		l.Error(reason, err)
+		return errors.InternalServer(reason, err.Error())
+	}
+	l.Infof("migrated %T", m)
+
+	l.Info("migration completed successfully")
+	return nil
 }
