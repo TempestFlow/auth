@@ -52,7 +52,7 @@ func NewData(c *conf.Data, logger log.Logger, tp trace.TracerProvider) (*Data, f
 		// noDB = false
 	}
 
-	if c.GetMongo != nil && c.GetMongo().GetUri() != "" && c.GetMongo().GetDatabase() != "" && c.GetMongo().GetUsername() != "" && c.GetMongo().GetPassword() != "" {
+	if c.GetMongo() != nil && c.GetMongo().GetUri() != "" && c.GetMongo().GetDatabase() != "" && c.GetMongo().GetUsername() != "" && c.GetMongo().GetPassword() != "" {
 		m, mongoClean, err = dep.NewMongo(c, logger)
 		if err != nil {
 			lg.Warn("failed to connect to MongoDB", err)
