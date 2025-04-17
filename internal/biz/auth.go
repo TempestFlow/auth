@@ -60,6 +60,7 @@ func (uc *AuthUsecase) Signup(ctx context.Context, username, email, password str
 		Build(time.Minute * 5).
 		Sign()
 	if err != nil {
+		uc.log.Error(err)
 		return nil, err
 	}
 	refToken, err := uc.tf.NewTokenPayload().
@@ -69,6 +70,7 @@ func (uc *AuthUsecase) Signup(ctx context.Context, username, email, password str
 		Build(time.Hour * 24).
 		Sign()
 	if err != nil {
+		uc.log.Error(err)
 		return nil, err
 	}
 

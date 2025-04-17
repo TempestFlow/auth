@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/lestrrat-go/jwx/v3/jwa"
 	"github.com/lestrrat-go/jwx/v3/jwt"
 )
 
@@ -56,7 +57,8 @@ func (p TokenPayload) Sign() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	tok, err := jwt.Sign(token)
+	opts := []jwt.SignOption{jwt.WithKey(jwa.HS256(), p.tf.secret)}
+	tok, err := jwt.Sign(token, opts...)
 	if err != nil {
 		return nil, err
 	}
