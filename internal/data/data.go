@@ -6,7 +6,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
 
-	"users/ent"
 	"users/internal/conf"
 	"users/internal/dep"
 
@@ -19,9 +18,9 @@ var DataProviderSet = wire.NewSet(NewData, NewUsersRepo)
 
 // Data .
 type Data struct {
-	gorm   *gorm.DB
-	mongo  *mongo.Database
-	ent    *ent.Client
+	gorm  *gorm.DB
+	mongo *mongo.Database
+	// ent    *ent.Client
 	logger log.Logger
 }
 
@@ -30,9 +29,9 @@ func NewData(c *conf.Data, logger log.Logger, tp trace.TracerProvider) (*Data, f
 	lg := log.NewHelper(logger)
 	var g *dep.Gorm
 	var m *dep.Mongo
-	var e *dep.Ent
+	// var e *dep.Ent
 	var mongoClean func()
-	var entClean func()
+	// var entClean func()
 	var err error
 	noDB := true
 
@@ -67,9 +66,9 @@ func NewData(c *conf.Data, logger log.Logger, tp trace.TracerProvider) (*Data, f
 		if mongoClean != nil {
 			mongoClean()
 		}
-		if entClean != nil {
-			entClean()
-		}
+		// if entClean != nil {
+		// 	entClean()
+		// }
 	}
 
 	if noDB {
@@ -85,10 +84,10 @@ func NewData(c *conf.Data, logger log.Logger, tp trace.TracerProvider) (*Data, f
 		lg.Debug("Attaching MongoDB")
 		data.mongo = m.DB
 	}
-	if e != nil {
-		lg.Debug("Attaching ent")
-		data.ent = e.Client
-	}
+	// if e != nil {
+	// 	lg.Debug("Attaching ent")
+	// 	data.ent = e.Client
+	// }
 
 	return data, cleanup, nil
 }

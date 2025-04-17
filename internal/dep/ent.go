@@ -1,5 +1,6 @@
 package dep
 
+/*
 import (
 	"users/ent"
 	"users/internal/conf"
@@ -39,3 +40,4 @@ func NewEnt(c *conf.Data, logger log.Logger, tracer trace.Tracer) (*Ent, func(),
 	}
 	return e, cleanup, nil
 }
+*/
