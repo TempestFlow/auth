@@ -49,7 +49,7 @@ func TestTokenPayload_Parse(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, token)
 
-	var tp tokenPayload
+	tp := tf.NewTokenPayload()
 	p2, err := tp.Parse(string(token))
 
 	assert.NoError(t, err)
@@ -58,6 +58,3 @@ func TestTokenPayload_Parse(t *testing.T) {
 	assert.Equal(t, "test@test.com", p2.GetEmail())
 	assert.Equal(t, "test", p2.GetExtraClaims()["extra"])
 }
-
-// how do i run tests?
-// go test -v -run TestTokenPayload_Parse

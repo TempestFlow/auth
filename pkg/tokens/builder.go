@@ -61,17 +61,29 @@ func (p *tokenPayload) ToMap() map[string]interface{} {
 }
 
 func (p *tokenPayload) GetID() string {
+	if p == nil {
+		return ""
+	}
 	return p.ID
 }
 
 func (p *tokenPayload) GetUsername() string {
+	if p == nil {
+		return ""
+	}
 	return p.Username
 }
 
 func (p *tokenPayload) GetEmail() string {
+	if p == nil {
+		return ""
+	}
 	return p.Email
 }
 
 func (p *tokenPayload) GetExtraClaims() map[string]interface{} {
+	if p == nil {
+		return make(map[string]interface{})
+	}
 	return p.ExtraClaims
 }

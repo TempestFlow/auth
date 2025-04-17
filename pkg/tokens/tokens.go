@@ -11,12 +11,16 @@ import (
 type TokenFactory struct {
 	name   string
 	secret string
+	alg    jwa.KeyAlgorithm
+	key    []byte
 }
 
 func NewTokenFactory(name, secret string) *TokenFactory {
 	return &TokenFactory{
 		name:   name,
 		secret: secret,
+		alg:    jwa.HS256(),
+		key:    []byte(secret),
 	}
 }
 
@@ -55,7 +59,7 @@ func (p tokenPayload) Sign() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	opts := []jwt.SignOption{jwt.WithKey(jwa.HS256(), []byte(p.tf.secret))}
+	opts := []jwt.SignOption{jwt.WithKey(p.tf.alg, p.tf.key)}
 	tok, err := jwt.Sign(token, opts...)
 	if err != nil {
 		return nil, err
@@ -63,9 +67,17 @@ func (p tokenPayload) Sign() ([]byte, error) {
 	return tok, nil
 }
 
-func (p tokenPayload) Parse(token string) (TokenPayload, error) {
+func (p *tokenPayload) Parse(token string) (TokenPayload, error) {
+	if p == nil {
+		return nil, errors.New("token payload is nil")
+	}
+	if token == "" {
+		return nil, errors.New("token is empty")
+	}
 	tok := []byte(token)
-	payload, err := jwt.Parse(tok)
+	opts := []jwt.ParseOption{jwt.WithValidate(true), jwt.WithKey(p.tf.alg, p.tf.key)}
+
+	payload, err := jwt.Parse(tok, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -103,8 +115,4 @@ func (p tokenPayload) Parse(token string) (TokenPayload, error) {
 		builder:     nil,
 		tf:          p.tf,
 	}, nil
-}
-
-func Validate(token jwt.Token) error {
-	return jwt.Validate(token)
 }
