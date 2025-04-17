@@ -9,10 +9,8 @@ import (
 )
 
 type TokenFactory struct {
-	name        string
-	secret      string
-	access_exp  time.Duration
-	refresh_exp time.Duration
+	name   string
+	secret string
 }
 
 func NewTokenFactory(name, secret string) *TokenFactory {
@@ -22,7 +20,7 @@ func NewTokenFactory(name, secret string) *TokenFactory {
 	}
 }
 
-type TokenPayload struct {
+type tokenPayload struct {
 	ID          string                 `json:"id"`
 	Username    string                 `json:"username"`
 	Email       string                 `json:"email"`
@@ -32,7 +30,7 @@ type TokenPayload struct {
 	tf      *TokenFactory
 }
 
-func (p TokenPayload) Build(duration time.Duration) TokenPayload {
+func (p tokenPayload) Build(duration time.Duration) TokenPayload {
 	builder := jwt.NewBuilder().IssuedAt(time.Now()).
 		NotBefore(time.Now()).
 		Issuer(p.tf.name).
@@ -43,10 +41,10 @@ func (p TokenPayload) Build(duration time.Duration) TokenPayload {
 		Claim("extraClaims", p.ExtraClaims)
 
 	p.builder = builder
-	return p
+	return &p
 }
 
-func (p TokenPayload) Sign() ([]byte, error) {
+func (p tokenPayload) Sign() ([]byte, error) {
 	if p.builder == nil {
 		return nil, errors.New("builder is nil")
 	}
@@ -57,7 +55,7 @@ func (p TokenPayload) Sign() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	opts := []jwt.SignOption{jwt.WithKey(jwa.HS256(), p.tf.secret)}
+	opts := []jwt.SignOption{jwt.WithKey(jwa.HS256(), []byte(p.tf.secret))}
 	tok, err := jwt.Sign(token, opts...)
 	if err != nil {
 		return nil, err
@@ -65,7 +63,7 @@ func (p TokenPayload) Sign() ([]byte, error) {
 	return tok, nil
 }
 
-func (p TokenPayload) Parse(token string) (*TokenPayload, error) {
+func (p tokenPayload) Parse(token string) (TokenPayload, error) {
 	tok := []byte(token)
 	payload, err := jwt.Parse(tok)
 	if err != nil {
@@ -75,25 +73,29 @@ func (p TokenPayload) Parse(token string) (*TokenPayload, error) {
 	if !ok {
 		return nil, errors.New("subject is not string")
 	}
+	p.ID = id
 	var username string
 	err = payload.Get("username", &username)
 	if err != nil {
 		return nil, err
 	}
+	p.Username = username
 
 	var email string
 	err = payload.Get("email", &email)
 	if err != nil {
 		return nil, err
 	}
+	p.Email = email
 
 	var extraClaims map[string]interface{}
 	err = payload.Get("extraClaims", &extraClaims)
 	if err != nil {
 		return nil, err
 	}
+	p.ExtraClaims = extraClaims
 
-	return &TokenPayload{
+	return &tokenPayload{
 		ID:          id,
 		Username:    username,
 		Email:       email,
