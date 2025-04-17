@@ -42,7 +42,14 @@ func (s *AuthService) Signup(ctx context.Context, req *pb.SignupRequest) (*pb.Si
 func (s *AuthService) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
 	ctx, span := otel.Tracer("auth").Start(ctx, "AuthService.Login")
 	defer span.End()
-	resp := &pb.LoginResponse{}
+	res, err := s.uc.Login(ctx, req.GetUsername(), req.GetPassword())
+	if err != nil {
+		return nil, err
+	}
+	resp := &pb.LoginResponse{
+		AccessToken:  res.AccessToken,
+		RefreshToken: res.RefreshToken,
+	}
 	return resp, nil
 }
 

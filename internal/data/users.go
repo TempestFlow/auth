@@ -11,16 +11,18 @@ import (
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 type Users struct {
 	gorm.Model
-	ID       uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primary_key"`
-	Username string    `gorm:"not null;uniqueIndex"`
-	Email    string    `gorm:"not null;uniqueIndex"`
-	Phone    string
-	Picture  string
+	ID           uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primary_key"`
+	Username     string    `gorm:"not null;uniqueIndex"`
+	Email        string    `gorm:"not null;uniqueIndex"`
+	Phone        string
+	Picture      string
+	PasswordHash string
 }
 
 type usersRepo struct {
@@ -42,12 +44,18 @@ func (r usersRepo) Save(ctx context.Context, u *biz.User) (string, error) {
 		Key:   "user",
 		Value: attribute.StringValue(u.Username + " " + u.Email + " " + u.Phone),
 	})
+	hash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
+	if err != nil {
+		r.log.Error("failed to hash password", err)
+		return "", err
+	}
 	user := Users{
-		Username: u.Username,
-		Email:    u.Email,
-		Phone:    "123",
-		Picture:  "",
-		ID:       uuid.New(),
+		Username:     u.Username,
+		Email:        u.Email,
+		Phone:        "123",
+		Picture:      "",
+		ID:           uuid.New(),
+		PasswordHash: string(hash),
 		// Phone:    u.Phone,
 		// Picture:  u.Picture,
 	}
@@ -246,4 +254,33 @@ func (r usersRepo) Search(ctx context.Context, keyword string, pagination *biz.P
 		})
 	}
 	return usersRes, nil
+}
+
+func (r usersRepo) GetUserByUsername(ctx context.Context, username string) (*biz.User, error) {
+	ctx, span := otel.Tracer("users").Start(ctx, "userRepo.GetUserByUsername")
+	defer span.End()
+	span.SetAttributes(attribute.KeyValue{
+		Key:   "username",
+		Value: attribute.StringValue(username),
+	})
+	var dbUser Users
+	res := r.db.WithContext(ctx).Where("username = ?", username).First(&dbUser)
+	err := res.Error
+	if err != nil {
+		return nil, err
+	}
+	if res.RowsAffected == 0 {
+		return nil, errors.NotFound("user", "user not found")
+	}
+	return &biz.User{
+		ID:        dbUser.ID.String(),
+		Username:  dbUser.Username,
+		Email:     dbUser.Email,
+		Phone:     dbUser.Phone,
+		Picture:   dbUser.Picture,
+		Password:  dbUser.PasswordHash,
+		CreatedAt: dbUser.CreatedAt.Unix(),
+		UpdatedAt: dbUser.UpdatedAt.Unix(),
+		DeletedAt: dbUser.DeletedAt.Time.Unix(),
+	}, nil
 }

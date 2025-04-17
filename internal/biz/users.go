@@ -29,6 +29,7 @@ type UsersRepo interface {
 	Update(ctx context.Context, u *User) (*User, error)
 	Delete(ctx context.Context, id string) (*User, error)
 	Search(ctx context.Context, keyword string, pagination *Pagination) ([]*User, error)
+	GetUserByUsername(ctx context.Context, username string) (*User, error)
 }
 
 type UsersUsecase struct {
@@ -137,6 +138,21 @@ func (uc *UsersUsecase) SearchUsers(ctx context.Context, keyword string, p *Pagi
 	})
 
 	res, err := uc.repo.Search(ctx, keyword, p)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (uc *UsersUsecase) GetUserByUsername(ctx context.Context, username string) (*User, error) {
+	ctx, span := otel.Tracer("users").Start(ctx, "UsersUsecase.GetUserByUsername")
+	defer span.End()
+	span.SetAttributes(attribute.KeyValue{
+		Key:   "username",
+		Value: attribute.StringValue(username),
+	})
+
+	res, err := uc.repo.GetUserByUsername(ctx, username)
 	if err != nil {
 		return nil, err
 	}
